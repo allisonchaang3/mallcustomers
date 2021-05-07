@@ -1,0 +1,125 @@
+---
+title: 'Assignment 4: Mall Customers Segmentation'
+author: "Allison Chaang"
+date: "4/29/2021"
+output: word_document
+---
+# Introduction to the Dataset
+The business problem that I want to solve is to understand the demographics of mall shoppers and to empower businesses to cater their products to their specific target markets. With this dataset of 200 consumers, we can help businesses narrow down which groups of consumers have higher spending power and how to segregate them for customized marketing and advertising. 
+
+# Importing and Cleaning the dataset
+The dataset that I am using is linked [here](https://www.kaggle.com/shwetabh123/mall-customers?select=Mall_Customers.csv), titled *“The Dataset for Frequent Mall Customers”*, which contains information on customers such as their gender, customer id, age, annual income, and spending score. 
+
+I downloaded the dataset into my desktop and imported it from my working directory.
+```{r}
+setwd("/Users/allisonchaang/Desktop/")
+getwd()
+mallcustomersdata <- read.csv("mallcustomers.csv")
+```
+
+Next, I wanted to see whether all the data was imported into R so I printed the first 10 rows of the dataset.
+```{r}
+head(mallcustomersdata,10)
+```
+
+Based on the code below, we see that there are `r ncol(mallcustomersdata)` columns of data for the customer ID, gender, age, annual income and spending score. Let's rename some of the columns to clean any spelling errors and ensure that it accurately explains the data.
+```{r}
+ncol(mallcustomersdata)
+colnames(mallcustomersdata)
+```
+
+```{r}
+library(dplyr)
+newtitles <- rename(mallcustomersdata,Gender=Genre, AnnualIncome=Annual.Income..k..,SpendingScore=Spending.Score..1.100.)
+```
+
+I want to make make sure the column names are updated
+```{r}
+colnames(newtitles)
+```
+
+Next, I want to make make sure the annual income is reflected in 1000s
+```{r}
+library(stringr)
+newtitles$AnnualIncome=str_pad(newtitles$AnnualIncome,width=5,side="right",pad="0")
+```
+```{r}
+head(newtitles)
+```
+
+# Exploring the dataset
+We see that there are 200 unique customer IDS, and the customers range from 18 years old to 70 years old. On average though, the customers are around 39 years old so most of them are middle-aged consumers.
+```{r}
+summary(newtitles)
+```
+Given that there is such a large variation in terms of ages of consumers, as shown in the histogram below, I want to group them by 4 age groups: 1 (15-29), 2 (30-44), 3 (45-59) and 4(60 and above) to better understand which age group shops the most by average. 
+```{r}
+hist(newtitles$Age, col="pink",border="red", xlab="Age", main="Histogram of Age of Mall Shoppers")
+```
+
+```{r}
+library(dplyr)
+grouped <- newtitles %>% mutate(AgeGroup = case_when(Age>=15 & Age <28 ~'1',
+                                                     Age>=28 & Age <41 ~ '2',
+                                                     Age>=41 & Age<54 ~ '3',
+                                                     Age>= 54 ~ '4'))
+```
+
+Next, I want to re-create the histogram of consumer age but with bins by *Age* so that it can be visually easier to understand as well as easier to analyze the data.
+
+```{r}
+library(ggplot2)
+ggplot(data=grouped, aes(Age))+geom_histogram(breaks=seq(15,70,by=13),fill="light blue",col="blue" ) +labs(title="Histogram of Grouped Ages of Mall Shopper")
+```
+From the output below, we can see that the spending score is highest among groups 1 and 2 which are those between the ages of 15-41 in aggregate. The rate slowly decreases as the consumer group gets older. However, the gap between the 4 groups are not too large, they only vary by ~15 of spending score. 
+```{r}
+aggregate(x=grouped$SpendingScore,
+          by=list(grouped$AgeGroup), 
+          FUN=mean)
+```
+Next, I want to dig a little deeper into the age groups and their annual income. Since groups 1 and 2 have the highest spending score, I wonder if it correlates with higher annual income. However, I noticed that the `AnnualIncome` column is in characters format so I changed it to integer using the `as.integer` function
+```{r}
+str(grouped)
+```
+
+```{r}
+grouped$AnnualIncome=as.integer(grouped$AnnualIncome)
+str(grouped)
+```
+Now that the `AnnualIncome` is in integer format, I can proceed to see the average annual income of consumers across the 4 age groups. From the data below, we see that group 2 (28-41 years old) has the highest average income of $56,178. This makes sense that they also have a high spending score. While consumers in Group 1 (below 28) also have a high spending score, I think it also makes sense that they have lower average annual incomes compared to Groups 2 and 3 because they are younger thus they do not have the upper hand to aim for higher positions / compensation packages based on seniority. Perhaps we can conclude that Groups 3 to 4 have sustainable incomes but frequent these shopping malls less compared to younger consumers.
+
+
+```{r}
+aggregate(x=grouped$AnnualIncome,
+          by=list(grouped$AgeGroup), 
+          FUN=mean)
+```
+I also wanted to see if there was a correlation between spending score and annual income. Naturally I assumed that a high income would lead to higher spending score, vice versa. However, I am surprised by the scatterplot below that does not show a positive correlation between the two. Most of the data aggregates in the middle of annual income and spending score, which renders this correlation inconclusive.
+```{r}
+x<- grouped$AnnualIncome
+y <- grouped$SpendingScore
+plot(x,y,main="Scatterplot of Annual Income and Spending Score", xlab="Annual Income",ylab="Spending Score", frame=FALSE)
+```
+
+Also, I'd like to also point out that of the 200 consumers we surveyed in this data, 112 of them are female and 88 of them are males. I have a gut feeling that gender might play a role in the spending patterns of consumers so I want to incorporate their gender into analysis.
+```{r}
+aggregate(x=grouped$CustomerID,
+          by=list(grouped$Gender), 
+          FUN=length)
+```
+
+Across all both genders, we can see that females across all ages fare higher than males in terms of spending scores. To piece it all together, we can conclude that younger, female shoppers tend to spend the most thus they would be the most lucrative market segment to target for businesses in the mall.
+
+```{r}
+aggregate(x=grouped$SpendingScore,
+          by=list(grouped$AgeGroup, grouped$Gender), 
+          FUN=mean)
+```
+
+Additionally, while females across all age groups have lower annual incomes than their male counterparts, females are still showing higher spending scores compared to men. This shows that there must be other extrinsic or intrinsic motivation for females to spend, there is no positive correlation between annual income and spending score. A higher income does not necessarily lead to or correlate with a more spenidng habits.
+
+```{r}
+aggregate(x=grouped$AnnualIncome,
+          by=list(grouped$AgeGroup, grouped$Gender), 
+          FUN=mean)
+```
